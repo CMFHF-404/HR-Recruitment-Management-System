@@ -1,13 +1,15 @@
 # 小型企业招聘管理信息系统
 
-面向小型企业 HR 的招聘管理信息系统，覆盖岗位信息管理、候选人信息管理、简历筛选、面试安排、录用结果管理和招聘数据统计。
+面向小型企业 HR 的招聘管理信息系统，覆盖岗位信息管理、候选人信息管理、简历筛选、部门主管二次确认、面试安排、录用结果管理和招聘数据统计。
 
 ## 技术栈
 
 - 后端：Spring Boot 3、Java 17、Spring Security、Spring Data JPA、MySQL 8、H2 测试库
 - 前端：Vue 3、Vite、Element Plus、Axios、ECharts
-- 默认账号：admin
-- 默认密码：admin123
+- HR 默认账号：admin
+- HR 默认密码：admin123
+- 部门主管默认账号：manager
+- 部门主管默认密码：manager123
 
 ## 本地运行
 
@@ -18,6 +20,8 @@
 ```sql
 CREATE DATABASE IF NOT EXISTS hr_recruitment DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
+
+如果是从旧版本数据库升级，先执行 `database/migrate-manager-review.sql` 补齐部门主管和二次确认相关字段，再执行 `database/init-data.sql` 初始化默认账号。
 
 默认连接配置在 `backend/src/main/resources/application.properties`：
 

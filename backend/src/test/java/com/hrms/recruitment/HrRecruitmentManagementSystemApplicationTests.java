@@ -38,14 +38,60 @@ class HrRecruitmentManagementSystemApplicationTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"admin\",\"password\":\"admin123\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.token").exists());
+                .andExpect(jsonPath("$.data.token").exists())
+                .andExpect(jsonPath("$.data.role").value("HR"));
+    }
+
+    @Test
+    void managerCanLoginWithManagerRole() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"manager\",\"password\":\"manager123\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.token").exists())
+                .andExpect(jsonPath("$.data.role").value("MANAGER"));
+    }
+
+    @Test
+    void onlyManagerCanCreatePositions() throws Exception {
+        String hrToken = loginToken("admin", "admin123");
+        String managerToken = loginToken("manager", "manager123");
+
+        mockMvc.perform(post("/api/positions")
+                        .header("Authorization", "Bearer " + hrToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"HR 不可建岗位","department":"测试部","headcount":1,
+                                "requirements":"HR 尝试新增岗位","status":"OPEN"}
+                                """))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/positions")
+                        .header("Authorization", "Bearer " + managerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"主管新增岗位","department":"技术部","headcount":1,
+                                "requirements":"主管维护岗位","status":"OPEN"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").exists());
+    }
+
+    @Test
+    void managerCannotAccessHrStatistics() throws Exception {
+        String managerToken = loginToken("manager", "manager123");
+
+        mockMvc.perform(get("/api/statistics/overview")
+                        .header("Authorization", "Bearer " + managerToken))
+                .andExpect(status().isForbidden());
     }
 
     @Test
     void recruitmentFlowCanBeManagedEndToEnd() throws Exception {
-        String token = loginToken();
+        String hrToken = loginToken("admin", "admin123");
+        String managerToken = loginToken("manager", "manager123");
         String positionResult = mockMvc.perform(post("/api/positions")
-                        .header("Authorization", "Bearer " + token)
+                        .header("Authorization", "Bearer " + managerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"Java 开发工程师","department":"技术部","headcount":2,
@@ -57,7 +103,7 @@ class HrRecruitmentManagementSystemApplicationTests {
         String positionId = positionResult.replaceAll(".*\"id\":([0-9]+).*", "$1");
 
         String candidateResult = mockMvc.perform(post("/api/candidates")
-                        .header("Authorization", "Bearer " + token)
+                        .header("Authorization", "Bearer " + hrToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"张三","gender":"男","phone":"13800138000","email":"zhangsan@example.com",
@@ -66,93 +112,151 @@ class HrRecruitmentManagementSystemApplicationTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.position.id").value(Integer.parseInt(positionId)))
                 .andReturn().getResponse().getContentAsString();
-        String candidateId = candidateResult.replaceAll(".*\"id\":([0-9]+).*", "$1");
+        String candidateId = candidateResult.replaceAll(".*\"data\":\\{\"id\":([0-9]+).*", "$1");
 
         mockMvc.perform(put("/api/screenings/" + candidateId)
-                        .header("Authorization", "Bearer " + token)
+                        .header("Authorization", "Bearer " + hrToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"PASSED\",\"comment\":\"符合岗位要求\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("PASSED"));
+                .andExpect(jsonPath("$.data.status").value("PASSED"))
+                .andExpect(jsonPath("$.data.managerStatus").value("PENDING"));
 
         mockMvc.perform(put("/api/interviews/" + candidateId)
-                        .header("Authorization", "Bearer " + token)
+                        .header("Authorization", "Bearer " + hrToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"interviewTime\":\"2026-05-01T10:00:00\",\"location\":\"会议室 A\",\"interviewer\":\"李经理\",\"status\":\"SCHEDULED\",\"evaluation\":\"待面试\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("候选人需经部门主管确认通过后才能安排面试"));
+
+        mockMvc.perform(get("/api/manager-reviews")
+                        .header("Authorization", "Bearer " + managerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].candidate.id").value(Integer.parseInt(candidateId)))
+                .andExpect(jsonPath("$.data.content[0].managerStatus").value("PENDING"));
+
+        mockMvc.perform(put("/api/manager-reviews/" + candidateId)
+                        .header("Authorization", "Bearer " + managerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"APPROVED\",\"comment\":\"部门用人需求匹配\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.managerStatus").value("APPROVED"));
+
+        mockMvc.perform(put("/api/interviews/" + candidateId)
+                        .header("Authorization", "Bearer " + hrToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"interviewTime\":\"2026-05-01T10:00:00\",\"location\":\"会议室 A\",\"interviewer\":\"李经理\",\"status\":\"SCHEDULED\",\"evaluation\":\"待面试\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("SCHEDULED"));
 
         mockMvc.perform(put("/api/offers/" + candidateId)
-                        .header("Authorization", "Bearer " + token)
+                        .header("Authorization", "Bearer " + hrToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"OFFERED\",\"salaryNote\":\"面议\",\"remark\":\"已发 offer\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("OFFERED"));
 
         mockMvc.perform(get("/api/candidates/" + candidateId + "/progress")
-                        .header("Authorization", "Bearer " + token))
+                        .header("Authorization", "Bearer " + hrToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.screening.status").value("PASSED"))
+                .andExpect(jsonPath("$.data.screening.managerStatus").value("APPROVED"))
                 .andExpect(jsonPath("$.data.offer.status").value("OFFERED"));
 
         mockMvc.perform(delete("/api/positions/" + positionId)
-                        .header("Authorization", "Bearer " + token))
+                        .header("Authorization", "Bearer " + managerToken))
                 .andExpect(status().isBadRequest());
 
         mockMvc.perform(get("/api/statistics/overview")
-                        .header("Authorization", "Bearer " + token))
+                        .header("Authorization", "Bearer " + hrToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.offeredCount").value(1));
     }
 
     @Test
-    void canceledInterviewIsNotCountedAsInterviewProgress() throws Exception {
-        String token = loginToken();
-        int before = overviewInterviewCount(token);
+    void managerRejectionBlocksInterviewScheduling() throws Exception {
+        String hrToken = loginToken("admin", "admin123");
+        String managerToken = loginToken("manager", "manager123");
+        String positionId = createPosition(managerToken, "主管驳回测试岗位");
+        String candidateId = createCandidate(hrToken, positionId, "王五", "wangwu@example.com");
 
-        String positionResult = mockMvc.perform(post("/api/positions")
-                        .header("Authorization", "Bearer " + token)
+        mockMvc.perform(put("/api/screenings/" + candidateId)
+                        .header("Authorization", "Bearer " + hrToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"name":"测试岗位","department":"测试部","headcount":1,
-                                "requirements":"用于验证取消面试统计","status":"OPEN"}
-                                """))
+                        .content("{\"status\":\"PASSED\",\"comment\":\"HR 初筛通过\"}"))
                 .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        String positionId = positionResult.replaceAll(".*\"id\":([0-9]+).*", "$1");
+                .andExpect(jsonPath("$.data.managerStatus").value("PENDING"));
 
-        String candidateResult = mockMvc.perform(post("/api/candidates")
-                        .header("Authorization", "Bearer " + token)
+        mockMvc.perform(put("/api/manager-reviews/" + candidateId)
+                        .header("Authorization", "Bearer " + managerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"name":"李四","gender":"女","phone":"13900139000","email":"lisi@example.com",
-                                "education":"本科","school":"测试大学","positionId":%s,"note":"取消面试统计测试"}
-                                """.formatted(positionId)))
+                        .content("{\"status\":\"REJECTED\",\"comment\":\"部门暂不匹配\"}"))
                 .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        String candidateId = candidateResult.replaceAll(".*\"id\":([0-9]+).*", "$1");
+                .andExpect(jsonPath("$.data.managerStatus").value("REJECTED"));
 
         mockMvc.perform(put("/api/interviews/" + candidateId)
-                        .header("Authorization", "Bearer " + token)
+                        .header("Authorization", "Bearer " + hrToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"interviewTime\":\"2026-05-02T10:00:00\",\"location\":\"会议室 B\",\"interviewer\":\"李经理\",\"status\":\"SCHEDULED\",\"evaluation\":\"待面试\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("候选人需经部门主管确认通过后才能安排面试"));
+    }
+
+    @Test
+    void canceledInterviewIsNotCountedAsInterviewProgress() throws Exception {
+        String hrToken = loginToken("admin", "admin123");
+        String managerToken = loginToken("manager", "manager123");
+        int before = overviewInterviewCount(hrToken);
+        String positionId = createPosition(managerToken, "测试岗位");
+        String candidateId = createCandidate(hrToken, positionId, "李四", "lisi@example.com");
+
+        mockMvc.perform(put("/api/interviews/" + candidateId)
+                        .header("Authorization", "Bearer " + hrToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"CANCELED\",\"evaluation\":\"候选人临时取消\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("CANCELED"));
 
         mockMvc.perform(get("/api/statistics/overview")
-                        .header("Authorization", "Bearer " + token))
+                        .header("Authorization", "Bearer " + hrToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.interviewCount").value(before));
     }
 
-    private String loginToken() throws Exception {
+    private String loginToken(String username, String password) throws Exception {
         String body = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\":\"admin\",\"password\":\"admin123\"}"))
+                        .content("{\"username\":\"%s\",\"password\":\"%s\"}".formatted(username, password)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.token").exists())
                 .andReturn().getResponse().getContentAsString();
         return body.replaceAll(".*\"token\":\"([^\"]+)\".*", "$1");
+    }
+
+    private String createPosition(String managerToken, String name) throws Exception {
+        String body = mockMvc.perform(post("/api/positions")
+                        .header("Authorization", "Bearer " + managerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"%s","department":"测试部","headcount":1,
+                                "requirements":"用于自动化测试","status":"OPEN"}
+                                """.formatted(name)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return body.replaceAll(".*\"data\":\\{\"id\":([0-9]+).*", "$1");
+    }
+
+    private String createCandidate(String hrToken, String positionId, String name, String email) throws Exception {
+        String body = mockMvc.perform(post("/api/candidates")
+                        .header("Authorization", "Bearer " + hrToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"%s","gender":"女","phone":"13900139000","email":"%s",
+                                "education":"本科","school":"测试大学","positionId":%s,"note":"流程测试"}
+                                """.formatted(name, email, positionId)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return body.replaceAll(".*\"data\":\\{\"id\":([0-9]+).*", "$1");
     }
 
     private int overviewInterviewCount(String token) throws Exception {

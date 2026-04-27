@@ -1,9 +1,8 @@
 package com.hrms.recruitment.security;
 
 import java.io.IOException;
-import java.util.List;
-
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -32,8 +31,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String auth = request.getHeader("Authorization");
         if (auth != null && auth.startsWith("Bearer ")) {
-            String username = jwtService.parseUsername(auth.substring(7));
-            var authentication = new UsernamePasswordAuthenticationToken(username, null, List.of());
+            var user = jwtService.parseUser(auth.substring(7));
+            var authority = new SimpleGrantedAuthority("ROLE_" + user.role().name());
+            var authentication = new UsernamePasswordAuthenticationToken(user.username(), null, java.util.List.of(authority));
             SecurityContextHolder.getContext().setAuthentication(authentication);
         }
         filterChain.doFilter(request, response);

@@ -11,6 +11,7 @@ import com.hrms.recruitment.common.BusinessException;
 import com.hrms.recruitment.domain.Candidate;
 import com.hrms.recruitment.domain.Interview;
 import com.hrms.recruitment.domain.InterviewStatus;
+import com.hrms.recruitment.domain.ManagerReviewStatus;
 import com.hrms.recruitment.domain.OfferResult;
 import com.hrms.recruitment.domain.OfferStatus;
 import com.hrms.recruitment.domain.Position;
@@ -107,9 +108,35 @@ public class RecruitmentService {
     public ResumeScreening updateScreening(Long candidateId, ScreeningStatus status, String comment) {
         ResumeScreening screening = screenings.findByCandidateId(candidateId)
                 .orElseThrow(() -> new BusinessException("筛选记录不存在"));
+        ScreeningStatus previousStatus = screening.getStatus();
         screening.setStatus(status);
         screening.setComment(comment);
         screening.setScreeningTime(LocalDateTime.now());
+        if (status == ScreeningStatus.PASSED && previousStatus != ScreeningStatus.PASSED) {
+            screening.setManagerStatus(ManagerReviewStatus.PENDING);
+            screening.setManagerComment(null);
+            screening.setManagerReviewTime(null);
+        } else if (status != ScreeningStatus.PASSED) {
+            screening.setManagerStatus(ManagerReviewStatus.NOT_SUBMITTED);
+            screening.setManagerComment(null);
+            screening.setManagerReviewTime(null);
+        }
+        return screenings.save(screening);
+    }
+
+    @Transactional
+    public ResumeScreening updateManagerReview(Long candidateId, ManagerReviewStatus status, String comment) {
+        ResumeScreening screening = screenings.findByCandidateId(candidateId)
+                .orElseThrow(() -> new BusinessException("筛选记录不存在"));
+        if (screening.getStatus() != ScreeningStatus.PASSED) {
+            throw new BusinessException("只有 HR 初筛通过的候选人才能进行主管确认");
+        }
+        if (status != ManagerReviewStatus.APPROVED && status != ManagerReviewStatus.REJECTED) {
+            throw new BusinessException("主管确认只能选择通过或驳回");
+        }
+        screening.setManagerStatus(status);
+        screening.setManagerComment(comment);
+        screening.setManagerReviewTime(LocalDateTime.now());
         return screenings.save(screening);
     }
 
@@ -120,6 +147,14 @@ public class RecruitmentService {
                 .orElseThrow(() -> new BusinessException("面试记录不存在"));
         if (status == InterviewStatus.SCHEDULED && interviewTime == null) {
             throw new BusinessException("安排面试时必须填写面试时间");
+        }
+        if (status == InterviewStatus.SCHEDULED || status == InterviewStatus.COMPLETED) {
+            ResumeScreening screening = screenings.findByCandidateId(candidateId)
+                    .orElseThrow(() -> new BusinessException("筛选记录不存在"));
+            if (screening.getStatus() != ScreeningStatus.PASSED
+                    || screening.getManagerStatus() != ManagerReviewStatus.APPROVED) {
+                throw new BusinessException("候选人需经部门主管确认通过后才能安排面试");
+            }
         }
         interview.setInterviewTime(interviewTime);
         interview.setLocation(location);

@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.hrms.recruitment.common.BusinessException;
+import com.hrms.recruitment.domain.AdminRole;
 
 @Service
 public class JwtService {
@@ -24,14 +25,27 @@ public class JwtService {
         this.ttlSeconds = ttlSeconds;
     }
 
-    public String createToken(String username) {
+    public String createToken(String username, AdminRole role) {
         long expiresAt = Instant.now().getEpochSecond() + ttlSeconds;
         String header = base64Url("{\"alg\":\"HS256\",\"typ\":\"JWT\"}");
-        String payload = base64Url("{\"sub\":\"" + username + "\",\"exp\":" + expiresAt + "}");
+        String payload = base64Url("{\"sub\":\"" + username + "\",\"role\":\"" + role.name() + "\",\"exp\":" + expiresAt + "}");
         return header + "." + payload + "." + sign(header + "." + payload);
     }
 
+    public AuthenticatedUser parseUser(String token) {
+        String payload = parsePayload(token);
+        String username = payload.replaceAll(".*\"sub\":\"([^\"]+)\".*", "$1");
+        String role = payload.contains("\"role\"")
+                ? payload.replaceAll(".*\"role\":\"([^\"]+)\".*", "$1")
+                : AdminRole.HR.name();
+        return new AuthenticatedUser(username, AdminRole.valueOf(role));
+    }
+
     public String parseUsername(String token) {
+        return parseUser(token).username();
+    }
+
+    private String parsePayload(String token) {
         try {
             String[] parts = token.split("\\.");
             if (parts.length != 3 || !sign(parts[0] + "." + parts[1]).equals(parts[2])) {
@@ -42,7 +56,7 @@ public class JwtService {
             if (Instant.now().getEpochSecond() > exp) {
                 throw new BusinessException("登录已过期");
             }
-            return payload.replaceAll(".*\"sub\":\"([^\"]+)\".*", "$1");
+            return payload;
         } catch (RuntimeException ex) {
             if (ex instanceof BusinessException businessException) {
                 throw businessException;
@@ -66,4 +80,6 @@ public class JwtService {
             throw new IllegalStateException("JWT 签名失败", ex);
         }
     }
+
+    public record AuthenticatedUser(String username, AdminRole role) {}
 }

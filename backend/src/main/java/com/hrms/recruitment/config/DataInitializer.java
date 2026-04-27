@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.hrms.recruitment.domain.Admin;
+import com.hrms.recruitment.domain.AdminRole;
 import com.hrms.recruitment.repository.AdminRepository;
 
 @Configuration
@@ -14,7 +15,17 @@ public class DataInitializer {
     CommandLineRunner initAdmin(AdminRepository adminRepository, PasswordEncoder passwordEncoder) {
         return args -> {
             if (!adminRepository.existsByUsername("admin")) {
-                adminRepository.save(new Admin("admin", passwordEncoder.encode("admin123"), "HR 管理员"));
+                adminRepository.save(new Admin("admin", passwordEncoder.encode("admin123"), "HR 管理员", AdminRole.HR));
+            } else {
+                adminRepository.findByUsername("admin").ifPresent(admin -> {
+                    if (!admin.hasStoredRole()) {
+                        admin.setRole(AdminRole.HR);
+                        adminRepository.save(admin);
+                    }
+                });
+            }
+            if (!adminRepository.existsByUsername("manager")) {
+                adminRepository.save(new Admin("manager", passwordEncoder.encode("manager123"), "部门主管", AdminRole.MANAGER));
             }
         };
     }

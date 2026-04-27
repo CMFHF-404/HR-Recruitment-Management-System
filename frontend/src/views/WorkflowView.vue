@@ -15,6 +15,7 @@
             <el-table-column label="候选人" min-width="120"><template #default="{ row }">{{ row.candidate.name }}</template></el-table-column>
             <el-table-column label="应聘岗位" min-width="150"><template #default="{ row }">{{ row.candidate.position?.name }}</template></el-table-column>
             <el-table-column label="状态" width="110"><template #default="{ row }"><el-tag :type="statusType[row.status]">{{ screeningStatusText[row.status] }}</el-tag></template></el-table-column>
+            <el-table-column label="主管确认" width="130"><template #default="{ row }"><el-tag :type="statusType[row.managerStatus]">{{ managerReviewStatusText[row.managerStatus] }}</el-tag></template></el-table-column>
             <el-table-column prop="comment" label="筛选意见" min-width="220" show-overflow-tooltip />
             <el-table-column label="操作" width="120"><template #default="{ row }"><el-button link type="primary" @click="editScreening(row)">处理</el-button></template></el-table-column>
           </el-table>
@@ -99,7 +100,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
-import { api, interviewStatusText, offerStatusText, screeningStatusText, statusType } from '../api'
+import { api, interviewStatusText, managerReviewStatusText, offerStatusText, screeningStatusText, statusType } from '../api'
 
 const activeTab = ref('screening')
 const loading = ref(false)

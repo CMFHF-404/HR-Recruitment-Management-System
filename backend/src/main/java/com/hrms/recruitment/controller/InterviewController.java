@@ -34,7 +34,7 @@ public class InterviewController {
 
     @GetMapping
     public ApiResponse<Page<Interview>> list(@PageableDefault(size = 10) Pageable pageable) {
-        return ApiResponse.ok(interviews.findAllByOrderByIdDesc(pageable));
+        return ApiResponse.ok(interviews.findAllReadyForInterview(pageable));
     }
 
     @PutMapping("/{candidateId}")

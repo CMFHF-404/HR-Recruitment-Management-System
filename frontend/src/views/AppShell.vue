@@ -6,20 +6,19 @@
         <strong>招聘管理</strong>
       </div>
       <el-menu router :default-active="$route.path" class="menu">
-        <el-menu-item index="/dashboard"><el-icon><DataAnalysis /></el-icon><span>统计首页</span></el-menu-item>
-        <el-menu-item index="/positions"><el-icon><Briefcase /></el-icon><span>岗位管理</span></el-menu-item>
-        <el-menu-item index="/candidates"><el-icon><UserFilled /></el-icon><span>候选人管理</span></el-menu-item>
-        <el-menu-item index="/workflow"><el-icon><Operation /></el-icon><span>招聘流程</span></el-menu-item>
+        <el-menu-item v-for="item in menus" :key="item.path" :index="item.path">
+          <el-icon><component :is="item.icon" /></el-icon><span>{{ item.label }}</span>
+        </el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>
       <el-header class="topbar">
         <div>
           <strong>{{ title }}</strong>
-          <span>本地课程设计演示系统</span>
+          <span>{{ roleText[currentRole] || '本地课程设计演示系统' }}</span>
         </div>
         <el-dropdown>
-          <el-button :icon="User"> {{ user.name || user.username }} </el-button>
+          <el-button :icon="User"> {{ user.name || user.username }} / {{ roleText[currentRole] || '用户' }} </el-button>
           <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item @click="logout">退出登录</el-dropdown-item>
@@ -42,11 +41,25 @@ import { Briefcase, DataAnalysis, Operation, User, UserFilled } from '@element-p
 const route = useRoute()
 const router = useRouter()
 const user = JSON.parse(localStorage.getItem('hrms_user') || '{}')
+const roleText = {
+  HR: 'HR',
+  MANAGER: '部门主管',
+}
+const currentRole = user.role || 'HR'
+const allMenus = [
+  { path: '/dashboard', label: '统计首页', icon: DataAnalysis, roles: ['HR'] },
+  { path: '/positions', label: '岗位管理', icon: Briefcase, roles: ['MANAGER'] },
+  { path: '/candidates', label: '候选人管理', icon: UserFilled, roles: ['HR'] },
+  { path: '/workflow', label: '招聘流程', icon: Operation, roles: ['HR'] },
+  { path: '/manager-reviews', label: '主管确认', icon: Operation, roles: ['MANAGER'] },
+]
+const menus = computed(() => allMenus.filter((item) => item.roles.includes(currentRole)))
 const titles = {
   '/dashboard': '统计首页',
   '/positions': '岗位管理',
   '/candidates': '候选人管理',
   '/workflow': '招聘流程',
+  '/manager-reviews': '主管确认',
 }
 const title = computed(() => titles[route.path] || '招聘管理')
 

@@ -36,10 +36,10 @@ public class AuthController {
         if (!passwordEncoder.matches(request.password(), admin.getPassword())) {
             throw new BusinessException("用户名或密码错误");
         }
-        return ApiResponse.ok(new LoginResponse(jwtService.createToken(admin.getUsername()),
-                admin.getUsername(), admin.getName()));
+        return ApiResponse.ok(new LoginResponse(jwtService.createToken(admin.getUsername(), admin.getRole()),
+                admin.getUsername(), admin.getName(), admin.getRole().name()));
     }
 
     public record LoginRequest(@NotBlank String username, @NotBlank String password) {}
-    public record LoginResponse(String token, String username, String name) {}
+    public record LoginResponse(String token, String username, String name, String role) {}
 }

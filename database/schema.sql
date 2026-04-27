@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS admin (
   username VARCHAR(50) NOT NULL UNIQUE,
   password VARCHAR(255) NOT NULL,
   name VARCHAR(50) NOT NULL,
+  role VARCHAR(20) NOT NULL,
   created_at DATETIME NOT NULL
 );
 
@@ -40,6 +41,9 @@ CREATE TABLE IF NOT EXISTS resume_screening (
   status VARCHAR(20) NOT NULL,
   comment TEXT,
   screening_time DATETIME,
+  manager_status VARCHAR(20) NOT NULL,
+  manager_comment TEXT,
+  manager_review_time DATETIME,
   CONSTRAINT fk_screening_candidate FOREIGN KEY (candidate_id) REFERENCES candidate(id)
 );
 

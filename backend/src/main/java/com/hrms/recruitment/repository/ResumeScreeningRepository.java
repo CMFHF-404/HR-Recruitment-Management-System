@@ -14,4 +14,5 @@ public interface ResumeScreeningRepository extends JpaRepository<ResumeScreening
     long countByStatus(ScreeningStatus status);
     void deleteByCandidateId(Long candidateId);
     Page<ResumeScreening> findAllByOrderByIdDesc(Pageable pageable);
+    Page<ResumeScreening> findByStatusOrderByIdDesc(ScreeningStatus status, Pageable pageable);
 }

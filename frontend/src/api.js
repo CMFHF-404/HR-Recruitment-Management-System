@@ -44,6 +44,13 @@ export const screeningStatusText = {
   REJECTED: '未通过',
 }
 
+export const managerReviewStatusText = {
+  NOT_SUBMITTED: '未提交主管',
+  PENDING: '待主管确认',
+  APPROVED: '主管通过',
+  REJECTED: '主管驳回',
+}
+
 export const interviewStatusText = {
   NOT_SCHEDULED: '未安排',
   SCHEDULED: '已安排',
@@ -61,8 +68,10 @@ export const offerStatusText = {
 export const statusType = {
   OPEN: 'success',
   CLOSED: 'info',
+  NOT_SUBMITTED: 'info',
   PENDING: 'warning',
   PASSED: 'success',
+  APPROVED: 'success',
   REJECTED: 'danger',
   NOT_SCHEDULED: 'info',
   SCHEDULED: 'primary',

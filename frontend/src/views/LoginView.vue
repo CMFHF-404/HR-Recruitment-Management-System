@@ -3,11 +3,12 @@
     <section class="login-copy">
       <div class="brand-mark">HR</div>
       <h1>小型企业招聘管理信息系统</h1>
-      <p>覆盖岗位发布、候选人登记、简历筛选、面试安排、录用登记和招聘统计，帮助 HR 把招聘流程管理清楚。</p>
+      <p>覆盖岗位发布、候选人登记、简历筛选、主管确认、面试安排、录用登记和招聘统计，帮助招聘流程管理清楚。</p>
       <div class="flow-strip">
         <span>岗位</span>
         <span>候选人</span>
         <span>筛选</span>
+        <span>确认</span>
         <span>面试</span>
         <span>录用</span>
       </div>
@@ -15,7 +16,7 @@
 
     <el-form ref="formRef" class="login-card" :model="form" :rules="rules" @keyup.enter="submit">
       <h2>管理员登录</h2>
-      <p>默认账号：admin / admin123</p>
+      <p>HR：admin / admin123；主管：manager / manager123</p>
       <el-form-item prop="username">
         <el-input v-model="form.username" size="large" placeholder="用户名" :prefix-icon="User" />
       </el-form-item>
@@ -48,8 +49,8 @@ async function submit() {
   try {
     const data = await api.post('/auth/login', form)
     localStorage.setItem('hrms_token', data.token)
-    localStorage.setItem('hrms_user', JSON.stringify({ username: data.username, name: data.name }))
-    router.push('/dashboard')
+    localStorage.setItem('hrms_user', JSON.stringify({ username: data.username, name: data.name, role: data.role }))
+    router.push(data.role === 'MANAGER' ? '/positions' : '/dashboard')
   } finally {
     loading.value = false
   }

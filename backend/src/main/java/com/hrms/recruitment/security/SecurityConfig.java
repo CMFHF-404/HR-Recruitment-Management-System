@@ -30,6 +30,18 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/positions").hasRole("MANAGER")
+                        .requestMatchers(HttpMethod.PUT, "/api/positions/**").hasRole("MANAGER")
+                        .requestMatchers(HttpMethod.PATCH, "/api/positions/**").hasRole("MANAGER")
+                        .requestMatchers(HttpMethod.DELETE, "/api/positions/**").hasRole("MANAGER")
+                        .requestMatchers("/api/manager-reviews/**").hasRole("MANAGER")
+                        .requestMatchers(HttpMethod.POST, "/api/candidates").hasRole("HR")
+                        .requestMatchers(HttpMethod.PUT, "/api/candidates/**").hasRole("HR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/candidates/**").hasRole("HR")
+                        .requestMatchers(HttpMethod.PUT, "/api/screenings/**").hasRole("HR")
+                        .requestMatchers(HttpMethod.PUT, "/api/interviews/**").hasRole("HR")
+                        .requestMatchers(HttpMethod.PUT, "/api/offers/**").hasRole("HR")
+                        .requestMatchers("/api/statistics/**").hasRole("HR")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();

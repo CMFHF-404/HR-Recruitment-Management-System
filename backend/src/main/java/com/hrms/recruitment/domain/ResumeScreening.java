@@ -34,6 +34,15 @@ public class ResumeScreening {
 
     private LocalDateTime screeningTime;
 
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private ManagerReviewStatus managerStatus = ManagerReviewStatus.NOT_SUBMITTED;
+
+    @Column(columnDefinition = "text")
+    private String managerComment;
+
+    private LocalDateTime managerReviewTime;
+
     public Long getId() { return id; }
     public Candidate getCandidate() { return candidate; }
     public void setCandidate(Candidate candidate) { this.candidate = candidate; }
@@ -43,4 +52,10 @@ public class ResumeScreening {
     public void setComment(String comment) { this.comment = comment; }
     public LocalDateTime getScreeningTime() { return screeningTime; }
     public void setScreeningTime(LocalDateTime screeningTime) { this.screeningTime = screeningTime; }
+    public ManagerReviewStatus getManagerStatus() { return managerStatus == null ? ManagerReviewStatus.NOT_SUBMITTED : managerStatus; }
+    public void setManagerStatus(ManagerReviewStatus managerStatus) { this.managerStatus = managerStatus; }
+    public String getManagerComment() { return managerComment; }
+    public void setManagerComment(String managerComment) { this.managerComment = managerComment; }
+    public LocalDateTime getManagerReviewTime() { return managerReviewTime; }
+    public void setManagerReviewTime(LocalDateTime managerReviewTime) { this.managerReviewTime = managerReviewTime; }
 }

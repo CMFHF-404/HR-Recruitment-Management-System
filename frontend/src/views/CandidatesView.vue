@@ -80,6 +80,10 @@
             <el-tag :type="statusType[progress.screening.status]">{{ screeningStatusText[progress.screening.status] }}</el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="筛选意见">{{ progress.screening.comment || '暂无' }}</el-descriptions-item>
+          <el-descriptions-item label="主管确认">
+            <el-tag :type="statusType[progress.screening.managerStatus]">{{ managerReviewStatusText[progress.screening.managerStatus] }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="主管意见">{{ progress.screening.managerComment || '暂无' }}</el-descriptions-item>
           <el-descriptions-item label="面试状态">
             <el-tag :type="statusType[progress.interview.status]">{{ interviewStatusText[progress.interview.status] }}</el-tag>
           </el-descriptions-item>
@@ -99,7 +103,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search } from '@element-plus/icons-vue'
-import { api, interviewStatusText, offerStatusText, screeningStatusText, statusType } from '../api'
+import { api, interviewStatusText, managerReviewStatusText, offerStatusText, screeningStatusText, statusType } from '../api'
 
 const loading = ref(false)
 const keyword = ref('')
