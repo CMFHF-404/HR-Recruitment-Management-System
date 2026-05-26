@@ -219,6 +219,13 @@ public class RecruitmentService {
     public OfferResult updateOffer(Long candidateId, OfferStatus status, String salaryNote, String remark) {
         OfferResult offer = offers.findByCandidateId(candidateId)
                 .orElseThrow(() -> new BusinessException("录用记录不存在"));
+        if (status != OfferStatus.PENDING) {
+            Interview interview = interviews.findByCandidateId(candidateId)
+                    .orElseThrow(() -> new BusinessException("面试记录不存在"));
+            if (interview.getStatus() != InterviewStatus.COMPLETED) {
+                throw new BusinessException("候选人需完成面试后才能登记录用结果");
+            }
+        }
         offer.setStatus(status);
         offer.setSalaryNote(salaryNote);
         offer.setRemark(remark);

@@ -33,7 +33,8 @@ public class ManagerReviewController {
 
     @GetMapping
     public ApiResponse<Page<ResumeScreening>> list(@PageableDefault(size = 10) Pageable pageable) {
-        return ApiResponse.ok(screenings.findByStatusOrderByIdDesc(ScreeningStatus.PASSED, pageable));
+        return ApiResponse.ok(screenings.findByStatusAndManagerStatusOrderByIdDesc(
+                ScreeningStatus.PASSED, ManagerReviewStatus.PENDING, pageable));
     }
 
     @PutMapping("/{candidateId}")

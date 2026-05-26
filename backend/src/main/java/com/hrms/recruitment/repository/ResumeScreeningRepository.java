@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.hrms.recruitment.domain.ResumeScreening;
+import com.hrms.recruitment.domain.ManagerReviewStatus;
 import com.hrms.recruitment.domain.ScreeningStatus;
 
 public interface ResumeScreeningRepository extends JpaRepository<ResumeScreening, Long> {
@@ -15,4 +16,6 @@ public interface ResumeScreeningRepository extends JpaRepository<ResumeScreening
     void deleteByCandidateId(Long candidateId);
     Page<ResumeScreening> findAllByOrderByIdDesc(Pageable pageable);
     Page<ResumeScreening> findByStatusOrderByIdDesc(ScreeningStatus status, Pageable pageable);
+    Page<ResumeScreening> findByStatusAndManagerStatusOrderByIdDesc(
+            ScreeningStatus status, ManagerReviewStatus managerStatus, Pageable pageable);
 }
