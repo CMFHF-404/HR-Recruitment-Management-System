@@ -1,7 +1,25 @@
 :root {
+  /* Brand & surfaces — aligned with shell + Element Plus */
+  --hr-color-primary: #0f766e;
+  --hr-color-primary-light: #14b8a6;
+  --hr-sidebar-bg: #102a43;
+  --hr-sidebar-text: #d9e2ec;
+  --hr-surface: #ffffff;
+  --hr-page-bg: #f4f7fb;
+  --hr-text: #1e293b;
+  --hr-text-muted: #64748b;
+  --hr-border: #e2e8f0;
+  --el-color-primary: #0f766e;
+  --el-color-primary-light-3: #2dd4bf;
+  --el-color-primary-light-5: #5eead4;
+  --el-color-primary-light-7: #99f6e4;
+  --el-color-primary-light-8: #ccfbf1;
+  --el-color-primary-light-9: #ecfdf5;
+  --el-color-primary-dark-2: #0d5c56;
+
   font-family: Inter, "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
-  color: #1e293b;
-  background: #f4f7fb;
+  color: var(--hr-text);
+  background: var(--hr-page-bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -14,6 +32,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background: var(--hr-page-bg);
 }
 
 button,
@@ -59,11 +78,17 @@ textarea {
 }
 
 .panel {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--hr-surface);
+  border: 1px solid var(--hr-border);
   border-radius: 8px;
   padding: 18px;
   box-shadow: 0 12px 36px rgba(15, 23, 42, 0.05);
+}
+
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .stat-grid {
@@ -77,6 +102,12 @@ textarea {
   padding: 16px;
   border: 1px solid #e5e7eb;
   background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.stat-card:hover {
+  border-color: rgba(15, 118, 110, 0.35);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
 }
 
 .stat-label {

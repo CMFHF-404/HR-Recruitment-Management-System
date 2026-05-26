@@ -5,67 +5,99 @@
         <h1 class="page-title">招聘流程</h1>
         <p class="page-subtitle">集中维护简历筛选、面试安排与最终录用结果。</p>
       </div>
-      <el-button :icon="Refresh" @click="load">刷新</el-button>
+      <el-button :icon="Refresh" @click="loadActiveTab">刷新</el-button>
     </div>
 
     <div class="panel">
-      <el-tabs v-model="activeTab">
+      <el-tabs v-model="activeTab" @tab-change="onTabChange">
         <el-tab-pane label="简历筛选" name="screening">
-          <el-table v-loading="loading" :data="screenings.content" stripe>
-            <el-table-column label="候选人" min-width="120"><template #default="{ row }">{{ row.candidate.name }}</template></el-table-column>
-            <el-table-column label="应聘岗位" min-width="150"><template #default="{ row }">{{ row.candidate.position?.name }}</template></el-table-column>
-            <el-table-column label="状态" width="110"><template #default="{ row }"><el-tag :type="statusType[row.status]">{{ screeningStatusText[row.status] }}</el-tag></template></el-table-column>
-            <el-table-column label="主管确认" width="130"><template #default="{ row }"><el-tag :type="statusType[row.managerStatus]">{{ managerReviewStatusText[row.managerStatus] }}</el-tag></template></el-table-column>
-            <el-table-column prop="comment" label="筛选意见" min-width="220" show-overflow-tooltip />
-            <el-table-column label="操作" width="120"><template #default="{ row }"><el-button link type="primary" @click="editScreening(row)">处理</el-button></template></el-table-column>
-          </el-table>
+          <div class="table-scroll">
+            <el-table v-loading="loading" :data="screenings.content" stripe>
+              <template #empty>
+                <el-empty description="暂无筛选记录" />
+              </template>
+              <el-table-column label="候选人" min-width="120"><template #default="{ row }">{{ row.candidate.name }}</template></el-table-column>
+              <el-table-column label="应聘岗位" min-width="150"><template #default="{ row }">{{ row.candidate.position?.name }}</template></el-table-column>
+              <el-table-column label="状态" width="110"><template #default="{ row }"><el-tag :type="statusType[row.status]">{{ screeningStatusText[row.status] }}</el-tag></template></el-table-column>
+              <el-table-column label="主管确认" width="130"><template #default="{ row }"><el-tag :type="statusType[row.managerStatus]">{{ managerReviewStatusText[row.managerStatus] }}</el-tag></template></el-table-column>
+              <el-table-column label="AI 匹配" width="110"><template #default="{ row }">{{ formatAiScore(row.aiMatchScore) }}</template></el-table-column>
+              <el-table-column prop="aiQuickReview" label="AI 快评" min-width="220" show-overflow-tooltip />
+              <el-table-column prop="comment" label="筛选意见" min-width="220" show-overflow-tooltip />
+              <el-table-column label="操作" width="150"><template #default="{ row }"><el-button link type="primary" @click="editScreening(row)">处理/分析</el-button></template></el-table-column>
+            </el-table>
+          </div>
         </el-tab-pane>
 
         <el-tab-pane label="面试安排" name="interview">
-          <el-table v-loading="loading" :data="interviews.content" stripe>
-            <el-table-column label="候选人" min-width="120"><template #default="{ row }">{{ row.candidate.name }}</template></el-table-column>
-            <el-table-column label="岗位" min-width="150"><template #default="{ row }">{{ row.candidate.position?.name }}</template></el-table-column>
-            <el-table-column prop="interviewTime" label="面试时间" min-width="170" />
-            <el-table-column prop="location" label="地点" width="130" />
-            <el-table-column prop="interviewer" label="面试官" width="120" />
-            <el-table-column label="状态" width="110"><template #default="{ row }"><el-tag :type="statusType[row.status]">{{ interviewStatusText[row.status] }}</el-tag></template></el-table-column>
-            <el-table-column label="操作" width="120"><template #default="{ row }"><el-button link type="primary" @click="editInterview(row)">安排/记录</el-button></template></el-table-column>
-          </el-table>
+          <div class="table-scroll">
+            <el-table v-loading="loading" :data="interviews.content" stripe>
+              <template #empty>
+                <el-empty description="暂无面试记录" />
+              </template>
+              <el-table-column label="候选人" min-width="120"><template #default="{ row }">{{ row.candidate.name }}</template></el-table-column>
+              <el-table-column label="岗位" min-width="150"><template #default="{ row }">{{ row.candidate.position?.name }}</template></el-table-column>
+              <el-table-column prop="interviewTime" label="面试时间" min-width="170" />
+              <el-table-column prop="location" label="地点" width="130" />
+              <el-table-column prop="interviewer" label="面试官" width="120" />
+              <el-table-column label="状态" width="110"><template #default="{ row }"><el-tag :type="statusType[row.status]">{{ interviewStatusText[row.status] }}</el-tag></template></el-table-column>
+              <el-table-column label="操作" width="120"><template #default="{ row }"><el-button link type="primary" @click="editInterview(row)">安排/记录</el-button></template></el-table-column>
+            </el-table>
+          </div>
         </el-tab-pane>
 
         <el-tab-pane label="录用结果" name="offer">
-          <el-table v-loading="loading" :data="offers.content" stripe>
-            <el-table-column label="候选人" min-width="120"><template #default="{ row }">{{ row.candidate.name }}</template></el-table-column>
-            <el-table-column label="岗位" min-width="150"><template #default="{ row }">{{ row.candidate.position?.name }}</template></el-table-column>
-            <el-table-column label="状态" width="120"><template #default="{ row }"><el-tag :type="statusType[row.status]">{{ offerStatusText[row.status] }}</el-tag></template></el-table-column>
-            <el-table-column prop="salaryNote" label="薪资说明" min-width="150" />
-            <el-table-column prop="remark" label="备注" min-width="220" show-overflow-tooltip />
-            <el-table-column label="操作" width="120"><template #default="{ row }"><el-button link type="primary" @click="editOffer(row)">登记</el-button></template></el-table-column>
-          </el-table>
+          <div class="table-scroll">
+            <el-table v-loading="loading" :data="offers.content" stripe>
+              <template #empty>
+                <el-empty description="暂无录用记录" />
+              </template>
+              <el-table-column label="候选人" min-width="120"><template #default="{ row }">{{ row.candidate.name }}</template></el-table-column>
+              <el-table-column label="岗位" min-width="150"><template #default="{ row }">{{ row.candidate.position?.name }}</template></el-table-column>
+              <el-table-column label="状态" width="120"><template #default="{ row }"><el-tag :type="statusType[row.status]">{{ offerStatusText[row.status] }}</el-tag></template></el-table-column>
+              <el-table-column prop="salaryNote" label="薪资说明" min-width="150" />
+              <el-table-column prop="remark" label="备注" min-width="220" show-overflow-tooltip />
+              <el-table-column label="操作" width="120"><template #default="{ row }"><el-button link type="primary" @click="editOffer(row)">登记</el-button></template></el-table-column>
+            </el-table>
+          </div>
         </el-tab-pane>
       </el-tabs>
+      <el-pagination
+        v-if="paginationTotal > 0"
+        class="pager"
+        layout="total, prev, pager, next"
+        :total="paginationTotal"
+        :page-size="paginationSize"
+        :current-page="paginationCurrent"
+        @current-change="changePage"
+      />
     </div>
 
     <el-dialog v-model="screeningDialog" title="简历筛选" width="500px">
-      <el-form :model="screeningForm" label-width="90px">
-        <el-form-item label="筛选状态">
+      <el-form ref="screeningFormRef" :model="screeningForm" :rules="screeningRules" label-width="90px">
+        <el-form-item label="筛选状态" prop="status">
           <el-select v-model="screeningForm.status" style="width: 100%">
             <el-option label="待筛选" value="PENDING" />
             <el-option label="通过" value="PASSED" />
             <el-option label="未通过" value="REJECTED" />
           </el-select>
         </el-form-item>
+        <el-form-item label="AI 匹配度">{{ formatAiScore(screeningForm.aiMatchScore) }}</el-form-item>
+        <el-form-item label="AI 快评"><el-input v-model="screeningForm.aiQuickReview" type="textarea" :rows="3" readonly /></el-form-item>
         <el-form-item label="筛选意见"><el-input v-model="screeningForm.comment" type="textarea" :rows="4" /></el-form-item>
       </el-form>
-      <template #footer><el-button @click="screeningDialog = false">取消</el-button><el-button type="primary" @click="saveScreening">保存</el-button></template>
+      <template #footer>
+        <el-button :loading="aiLoading" @click="runAiAnalysis">重新 AI 分析</el-button>
+        <el-button @click="screeningDialog = false">取消</el-button>
+        <el-button type="primary" @click="saveScreening">保存</el-button>
+      </template>
     </el-dialog>
 
     <el-dialog v-model="interviewDialog" title="面试安排" width="540px">
-      <el-form :model="interviewForm" label-width="90px">
+      <el-form ref="interviewFormRef" :model="interviewForm" :rules="interviewRules" label-width="90px">
         <el-form-item label="面试时间"><el-date-picker v-model="interviewForm.interviewTime" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" style="width: 100%" /></el-form-item>
         <el-form-item label="面试地点"><el-input v-model="interviewForm.location" /></el-form-item>
         <el-form-item label="面试官"><el-input v-model="interviewForm.interviewer" /></el-form-item>
-        <el-form-item label="面试状态">
+        <el-form-item label="面试状态" prop="status">
           <el-select v-model="interviewForm.status" style="width: 100%">
             <el-option label="未安排" value="NOT_SCHEDULED" />
             <el-option label="已安排" value="SCHEDULED" />
@@ -79,8 +111,8 @@
     </el-dialog>
 
     <el-dialog v-model="offerDialog" title="录用结果" width="500px">
-      <el-form :model="offerForm" label-width="90px">
-        <el-form-item label="录用状态">
+      <el-form ref="offerFormRef" :model="offerForm" :rules="offerRules" label-width="90px">
+        <el-form-item label="录用状态" prop="status">
           <el-select v-model="offerForm.status" style="width: 100%">
             <el-option label="待定" value="PENDING" />
             <el-option label="录用" value="OFFERED" />
@@ -97,51 +129,132 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
 import { api, interviewStatusText, managerReviewStatusText, offerStatusText, screeningStatusText, statusType } from '../api'
 
 const activeTab = ref('screening')
 const loading = ref(false)
-const screenings = ref({ content: [] })
-const interviews = ref({ content: [] })
-const offers = ref({ content: [] })
+const screenings = ref({ content: [], totalElements: 0 })
+const interviews = ref({ content: [], totalElements: 0 })
+const offers = ref({ content: [], totalElements: 0 })
+const queries = reactive({
+  screening: { page: 0, size: 10 },
+  interview: { page: 0, size: 10 },
+  offer: { page: 0, size: 10 },
+})
+
+const paginationTotal = computed(() => {
+  if (activeTab.value === 'screening') return screenings.value.totalElements ?? 0
+  if (activeTab.value === 'interview') return interviews.value.totalElements ?? 0
+  return offers.value.totalElements ?? 0
+})
+
+const paginationSize = computed(() => {
+  if (activeTab.value === 'screening') return queries.screening.size
+  if (activeTab.value === 'interview') return queries.interview.size
+  return queries.offer.size
+})
+
+const paginationCurrent = computed(() => {
+  if (activeTab.value === 'screening') return queries.screening.page + 1
+  if (activeTab.value === 'interview') return queries.interview.page + 1
+  return queries.offer.page + 1
+})
+
 const selectedCandidateId = ref(null)
+const selectedScreening = ref(null)
 const screeningDialog = ref(false)
 const interviewDialog = ref(false)
 const offerDialog = ref(false)
-const screeningForm = reactive({ status: 'PENDING', comment: '' })
+const aiLoading = ref(false)
+const screeningFormRef = ref()
+const interviewFormRef = ref()
+const offerFormRef = ref()
+const screeningForm = reactive({ status: 'PENDING', comment: '', aiMatchScore: null, aiQuickReview: '' })
 const interviewForm = reactive({ interviewTime: '', location: '', interviewer: '', status: 'NOT_SCHEDULED', evaluation: '' })
 const offerForm = reactive({ status: 'PENDING', salaryNote: '', remark: '' })
 
-async function load() {
+const screeningRules = {
+  status: [{ required: true, message: '请选择筛选状态', trigger: 'change' }],
+}
+
+const interviewRules = {
+  status: [{ required: true, message: '请选择面试状态', trigger: 'change' }],
+}
+
+const offerRules = {
+  status: [{ required: true, message: '请选择录用状态', trigger: 'change' }],
+}
+
+async function loadActiveTab() {
   loading.value = true
   try {
-    const [screeningData, interviewData, offerData] = await Promise.all([
-      api.get('/screenings', { params: { size: 100 } }),
-      api.get('/interviews', { params: { size: 100 } }),
-      api.get('/offers', { params: { size: 100 } }),
-    ])
-    screenings.value = screeningData
-    interviews.value = interviewData
-    offers.value = offerData
+    if (activeTab.value === 'screening') {
+      screenings.value = await api.get('/screenings', { params: { page: queries.screening.page, size: queries.screening.size } })
+    } else if (activeTab.value === 'interview') {
+      interviews.value = await api.get('/interviews', { params: { page: queries.interview.page, size: queries.interview.size } })
+    } else {
+      offers.value = await api.get('/offers', { params: { page: queries.offer.page, size: queries.offer.size } })
+    }
   } finally {
     loading.value = false
   }
 }
 
+function onTabChange() {
+  loadActiveTab()
+}
+
+function changePage(pageNo) {
+  if (activeTab.value === 'screening') queries.screening.page = pageNo - 1
+  else if (activeTab.value === 'interview') queries.interview.page = pageNo - 1
+  else queries.offer.page = pageNo - 1
+  loadActiveTab()
+}
+
 function editScreening(row) {
   selectedCandidateId.value = row.candidate.id
-  Object.assign(screeningForm, { status: row.status, comment: row.comment || '' })
+  selectedScreening.value = row
+  Object.assign(screeningForm, {
+    status: row.status,
+    comment: row.comment || '',
+    aiMatchScore: row.aiMatchScore ?? null,
+    aiQuickReview: row.aiQuickReview || '',
+  })
   screeningDialog.value = true
 }
 
+async function runAiAnalysis() {
+  if (!selectedCandidateId.value) return
+  aiLoading.value = true
+  try {
+    const result = await api.post(`/screenings/${selectedCandidateId.value}/ai-analysis`)
+    Object.assign(screeningForm, {
+      aiMatchScore: result.aiMatchScore ?? null,
+      aiQuickReview: result.aiQuickReview || '',
+    })
+    if (selectedScreening.value) {
+      selectedScreening.value.aiMatchScore = result.aiMatchScore
+      selectedScreening.value.aiQuickReview = result.aiQuickReview
+    }
+    ElMessage.success('AI 分析已更新')
+    loadActiveTab()
+  } finally {
+    aiLoading.value = false
+  }
+}
+
 async function saveScreening() {
-  await api.put(`/screenings/${selectedCandidateId.value}`, screeningForm)
+  await screeningFormRef.value?.validate()
+  await api.put(`/screenings/${selectedCandidateId.value}`, {
+    status: screeningForm.status,
+    comment: screeningForm.comment,
+  })
   ElMessage.success('筛选状态已保存')
   screeningDialog.value = false
-  load()
+  loadActiveTab()
 }
 
 function editInterview(row) {
@@ -157,10 +270,11 @@ function editInterview(row) {
 }
 
 async function saveInterview() {
+  await interviewFormRef.value?.validate()
   await api.put(`/interviews/${selectedCandidateId.value}`, interviewForm)
   ElMessage.success('面试信息已保存')
   interviewDialog.value = false
-  load()
+  loadActiveTab()
 }
 
 function editOffer(row) {
@@ -169,12 +283,24 @@ function editOffer(row) {
   offerDialog.value = true
 }
 
+function formatAiScore(score) {
+  return score === null || score === undefined ? '暂无' : `${score}%`
+}
+
 async function saveOffer() {
+  await offerFormRef.value?.validate()
   await api.put(`/offers/${selectedCandidateId.value}`, offerForm)
   ElMessage.success('录用结果已保存')
   offerDialog.value = false
-  load()
+  loadActiveTab()
 }
 
-onMounted(load)
+onMounted(loadActiveTab)
 </script>
+
+<style scoped>
+.pager {
+  margin-top: 16px;
+  justify-content: flex-end;
+}
+</style>

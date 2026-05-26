@@ -13,8 +13,12 @@
     </div>
 
     <div class="panel">
-      <el-table v-loading="loading" :data="page.content" stripe>
-        <el-table-column prop="name" label="岗位名称" min-width="150" />
+      <div class="table-scroll">
+        <el-table v-loading="loading" :data="page.content" stripe>
+          <template #empty>
+            <el-empty description="暂无岗位，请先新增岗位" />
+          </template>
+          <el-table-column prop="name" label="岗位名称" min-width="150" />
         <el-table-column prop="department" label="所属部门" width="130" />
         <el-table-column prop="headcount" label="招聘人数" width="100" />
         <el-table-column prop="publishDate" label="发布时间" width="130" />
@@ -31,8 +35,16 @@
             <el-button link type="danger" @click="remove(row)">删除</el-button>
           </template>
         </el-table-column>
-      </el-table>
-      <el-pagination class="pager" layout="total, prev, pager, next" :total="page.totalElements" :page-size="query.size" @current-change="changePage" />
+        </el-table>
+      </div>
+      <el-pagination
+        class="pager"
+        layout="total, prev, pager, next"
+        :total="page.totalElements"
+        :page-size="query.size"
+        :current-page="query.page + 1"
+        @current-change="changePage"
+      />
     </div>
 
     <el-dialog v-model="dialogVisible" :title="editingId ? '编辑岗位' : '新增岗位'" width="560px">

@@ -22,7 +22,8 @@
           <p>候选人数、面试人数与录用人数对比</p>
         </div>
       </div>
-      <div ref="chartRef" class="chart"></div>
+      <div v-if="!positionStats.length" class="empty-hint">暂无岗位维度数据，请先维护岗位与候选人流程。</div>
+      <div v-else ref="chartRef" class="chart"></div>
     </div>
   </section>
 </template>
@@ -52,19 +53,32 @@ async function load() {
   overview.value = await api.get('/statistics/overview')
   positionStats.value = await api.get('/statistics/positions')
   await nextTick()
-  if (!mounted || !chartRef.value) return
+  if (!mounted) return
+  if (!positionStats.value.length) {
+    chart?.dispose()
+    chart = null
+    return
+  }
+  if (!chartRef.value) return
   renderChart()
 }
 
 function renderChart() {
   if (!chartRef.value) return
-  chart ||= echarts.init(chartRef.value)
   const names = positionStats.value.map((item) => item.positionName)
+  if (!names.length) {
+    chart?.dispose()
+    chart = null
+    return
+  }
+  chart ||= echarts.init(chartRef.value)
+  const rotate = names.length > 4 ? 28 : 0
+  const bottom = rotate ? 56 : 36
   chart.setOption({
     tooltip: { trigger: 'axis' },
     legend: { top: 0 },
-    grid: { left: 40, right: 20, bottom: 36, top: 48 },
-    xAxis: { type: 'category', data: names, axisLabel: { interval: 0 } },
+    grid: { left: 40, right: 20, bottom, top: 48 },
+    xAxis: { type: 'category', data: names, axisLabel: { interval: 0, rotate } },
     yAxis: { type: 'value', minInterval: 1 },
     series: [
       { name: '候选人数', type: 'bar', data: positionStats.value.map((item) => item.candidateCount), itemStyle: { color: '#0f766e' } },

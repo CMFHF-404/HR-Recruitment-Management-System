@@ -1,11 +1,19 @@
 package com.hrms.recruitment.service;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
+import java.util.Locale;
+import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.hrms.recruitment.common.BusinessException;
 import com.hrms.recruitment.domain.Candidate;
@@ -31,14 +39,22 @@ public class RecruitmentService {
     private final ResumeScreeningRepository screenings;
     private final InterviewRepository interviews;
     private final OfferResultRepository offers;
+    private final ResumeTextExtractor resumeTextExtractor;
+    private final ResumeAnalysisService resumeAnalysisService;
+    private final Path resumeUploadDir;
 
     public RecruitmentService(PositionRepository positions, CandidateRepository candidates,
-            ResumeScreeningRepository screenings, InterviewRepository interviews, OfferResultRepository offers) {
+            ResumeScreeningRepository screenings, InterviewRepository interviews, OfferResultRepository offers,
+            ResumeTextExtractor resumeTextExtractor, ResumeAnalysisService resumeAnalysisService,
+            @Value("${app.resume.upload-dir:uploads/resumes}") String resumeUploadDir) {
         this.positions = positions;
         this.candidates = candidates;
         this.screenings = screenings;
         this.interviews = interviews;
         this.offers = offers;
+        this.resumeTextExtractor = resumeTextExtractor;
+        this.resumeAnalysisService = resumeAnalysisService;
+        this.resumeUploadDir = Paths.get(resumeUploadDir).toAbsolutePath().normalize();
     }
 
     public Position getPosition(Long id) {
@@ -97,11 +113,46 @@ public class RecruitmentService {
 
     @Transactional
     public void deleteCandidate(Long id) {
-        getCandidate(id);
+        Candidate candidate = getCandidate(id);
         screenings.deleteByCandidateId(id);
         interviews.deleteByCandidateId(id);
         offers.deleteByCandidateId(id);
         candidates.deleteById(id);
+        deleteStoredResume(candidate);
+    }
+
+    @Transactional
+    public CandidateResumeUpload uploadCandidateResume(Long candidateId, MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException("简历文件不能为空");
+        }
+        Candidate candidate = getCandidate(candidateId);
+        byte[] bytes = readBytes(file);
+        String originalFileName = cleanFileName(file.getOriginalFilename());
+        String resumeText = resumeTextExtractor.extract(originalFileName, bytes);
+        Path storedPath = storeResumeFile(candidateId, originalFileName, bytes);
+
+        deleteStoredResume(candidate);
+        candidate.setResumeOriginalFileName(originalFileName);
+        candidate.setResumeContentType(file.getContentType());
+        candidate.setResumeStoragePath(storedPath.toString());
+        candidate.setResumeText(resumeText);
+        candidate.setResumeUploadedAt(LocalDateTime.now());
+        Candidate saved = candidates.save(candidate);
+
+        ResumeScreening screening = screenings.findByCandidateId(saved.getId())
+                .orElseThrow(() -> new BusinessException("筛选记录不存在"));
+        try {
+            screening = resumeAnalysisService.analyzeAndSave(saved);
+            return new CandidateResumeUpload(saved, screening, true, "AI 分析完成");
+        } catch (BusinessException ex) {
+            return new CandidateResumeUpload(saved, screening, false, ex.getMessage());
+        }
+    }
+
+    @Transactional
+    public ResumeScreening analyzeResume(Long candidateId) {
+        return resumeAnalysisService.analyzeAndSave(getCandidate(candidateId));
     }
 
     @Transactional
@@ -178,4 +229,72 @@ public class RecruitmentService {
     private String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
     }
+
+    private byte[] readBytes(MultipartFile file) {
+        try {
+            return file.getBytes();
+        } catch (IOException ex) {
+            throw new BusinessException("简历文件读取失败：" + ex.getMessage());
+        }
+    }
+
+    private Path storeResumeFile(Long candidateId, String originalFileName, byte[] bytes) {
+        try {
+            Files.createDirectories(resumeUploadDir);
+            String extension = extensionOf(originalFileName);
+            Path target = resumeUploadDir.resolve(
+                    "candidate-" + candidateId + "-" + UUID.randomUUID() + "." + extension).normalize();
+            if (!target.startsWith(resumeUploadDir)) {
+                throw new BusinessException("简历文件名不安全");
+            }
+            Files.write(target, bytes);
+            return target;
+        } catch (IOException ex) {
+            throw new BusinessException("简历文件保存失败：" + ex.getMessage());
+        }
+    }
+
+    private void deleteStoredResume(Candidate candidate) {
+        if (candidate.getResumeStoragePath() == null || candidate.getResumeStoragePath().isBlank()) {
+            return;
+        }
+        try {
+            Path stored = Paths.get(candidate.getResumeStoragePath()).toAbsolutePath().normalize();
+            if (stored.startsWith(resumeUploadDir)) {
+                Files.deleteIfExists(stored);
+            }
+        } catch (IOException ignored) {
+        }
+    }
+
+    private String cleanFileName(String fileName) {
+        if (fileName == null || fileName.isBlank()) {
+            throw new BusinessException("仅支持 PDF、DOCX、TXT 简历文件");
+        }
+        String cleaned = fileName.replace("\\", "/");
+        cleaned = cleaned.substring(cleaned.lastIndexOf('/') + 1).trim();
+        if (cleaned.isBlank()) {
+            throw new BusinessException("仅支持 PDF、DOCX、TXT 简历文件");
+        }
+        extensionOf(cleaned);
+        return cleaned;
+    }
+
+    private String extensionOf(String fileName) {
+        int dot = fileName.lastIndexOf('.');
+        if (dot < 0) {
+            throw new BusinessException("仅支持 PDF、DOCX、TXT 简历文件");
+        }
+        String extension = fileName.substring(dot + 1).toLowerCase(Locale.ROOT);
+        if (!extension.equals("pdf") && !extension.equals("docx") && !extension.equals("txt")) {
+            throw new BusinessException("仅支持 PDF、DOCX、TXT 简历文件");
+        }
+        return extension;
+    }
+
+    public record CandidateResumeUpload(
+            Candidate candidate,
+            ResumeScreening screening,
+            boolean analysisSucceeded,
+            String analysisMessage) {}
 }

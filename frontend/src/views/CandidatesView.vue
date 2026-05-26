@@ -16,8 +16,12 @@
     </div>
 
     <div class="panel">
-      <el-table v-loading="loading" :data="page.content" stripe>
-        <el-table-column prop="name" label="姓名" width="110" />
+      <div class="table-scroll">
+        <el-table v-loading="loading" :data="page.content" stripe>
+          <template #empty>
+            <el-empty description="暂无候选人，可点击新增录入" />
+          </template>
+          <el-table-column prop="name" label="姓名" width="110" />
         <el-table-column prop="gender" label="性别" width="80" />
         <el-table-column prop="phone" label="联系电话" width="140" />
         <el-table-column prop="email" label="邮箱" min-width="180" />
@@ -26,6 +30,9 @@
         <el-table-column label="应聘岗位" min-width="150">
           <template #default="{ row }">{{ row.position?.name }}</template>
         </el-table-column>
+        <el-table-column label="简历附件" min-width="150" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.resumeOriginalFileName || '未上传' }}</template>
+        </el-table-column>
         <el-table-column label="操作" width="210" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="showProgress(row)">进度</el-button>
@@ -33,8 +40,16 @@
             <el-button link type="danger" @click="remove(row)">删除</el-button>
           </template>
         </el-table-column>
-      </el-table>
-      <el-pagination class="pager" layout="total, prev, pager, next" :total="page.totalElements" :page-size="query.size" @current-change="changePage" />
+        </el-table>
+      </div>
+      <el-pagination
+        class="pager"
+        layout="total, prev, pager, next"
+        :total="page.totalElements"
+        :page-size="query.size"
+        :current-page="query.page + 1"
+        @current-change="changePage"
+      />
     </div>
 
     <el-dialog v-model="dialogVisible" :title="editingId ? '编辑候选人' : '新增候选人'" width="620px">
@@ -63,6 +78,23 @@
             <el-option v-for="item in positions" :key="item.id" :label="`${item.name} / ${item.department}`" :value="item.id" />
           </el-select>
         </el-form-item>
+        <el-form-item label="简历附件">
+          <el-upload
+            v-model:file-list="resumeFiles"
+            accept=".pdf,.docx,.txt"
+            :auto-upload="false"
+            :limit="1"
+            :on-change="selectResumeFile"
+            :on-remove="removeResumeFile"
+          >
+            <el-button :icon="Upload">选择 PDF/DOCX/TXT</el-button>
+            <template #tip>
+              <span class="upload-tip">
+                {{ form.resumeOriginalFileName ? `当前：${form.resumeOriginalFileName}` : '保存候选人后将自动上传并进行 AI 匹配分析' }}
+              </span>
+            </template>
+          </el-upload>
+        </el-form-item>
         <el-form-item label="备注"><el-input v-model="form.note" type="textarea" :rows="3" /></el-form-item>
       </el-form>
       <template #footer>
@@ -80,6 +112,8 @@
             <el-tag :type="statusType[progress.screening.status]">{{ screeningStatusText[progress.screening.status] }}</el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="筛选意见">{{ progress.screening.comment || '暂无' }}</el-descriptions-item>
+          <el-descriptions-item label="AI 匹配度">{{ formatAiScore(progress.screening.aiMatchScore) }}</el-descriptions-item>
+          <el-descriptions-item label="AI 快评">{{ progress.screening.aiQuickReview || '暂无' }}</el-descriptions-item>
           <el-descriptions-item label="主管确认">
             <el-tag :type="statusType[progress.screening.managerStatus]">{{ managerReviewStatusText[progress.screening.managerStatus] }}</el-tag>
           </el-descriptions-item>
@@ -102,7 +136,7 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search } from '@element-plus/icons-vue'
+import { Plus, Search, Upload } from '@element-plus/icons-vue'
 import { api, interviewStatusText, managerReviewStatusText, offerStatusText, screeningStatusText, statusType } from '../api'
 
 const loading = ref(false)
@@ -116,7 +150,9 @@ const drawerVisible = ref(false)
 const editingId = ref(null)
 const progress = ref(null)
 const formRef = ref()
-const form = reactive({ name: '', gender: '男', phone: '', email: '', education: '', school: '', positionId: null, note: '' })
+const resumeFiles = ref([])
+const selectedResumeFile = ref(null)
+const form = reactive({ name: '', gender: '男', phone: '', email: '', education: '', school: '', positionId: null, note: '', resumeOriginalFileName: '' })
 const rules = {
   name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
   gender: [{ required: true, message: '请选择性别', trigger: 'change' }],
@@ -148,21 +184,33 @@ function changePage(pageNo) {
 
 function openCreate() {
   editingId.value = null
-  Object.assign(form, { name: '', gender: '男', phone: '', email: '', education: '', school: '', positionId: positions.value[0]?.id || null, note: '' })
+  Object.assign(form, { name: '', gender: '男', phone: '', email: '', education: '', school: '', positionId: positions.value[0]?.id || null, note: '', resumeOriginalFileName: '' })
+  clearSelectedResume()
   dialogVisible.value = true
 }
 
 function openEdit(row) {
   editingId.value = row.id
   Object.assign(form, { ...row, positionId: row.position?.id })
+  clearSelectedResume()
   dialogVisible.value = true
 }
 
 async function save() {
   await formRef.value.validate()
-  if (editingId.value) await api.put(`/candidates/${editingId.value}`, form)
-  else await api.post('/candidates', form)
-  ElMessage.success('保存成功')
+  const saved = editingId.value
+    ? await api.put(`/candidates/${editingId.value}`, form)
+    : await api.post('/candidates', form)
+  if (selectedResumeFile.value) {
+    const uploadResult = await uploadResume(saved.id)
+    if (uploadResult.analysisSucceeded) {
+      ElMessage.success('候选人已保存，AI 匹配分析已完成')
+    } else {
+      ElMessage.warning(uploadResult.analysisMessage || '简历已上传，AI 分析失败，可稍后重试')
+    }
+  } else {
+    ElMessage.success('保存成功')
+  }
   dialogVisible.value = false
   load()
 }
@@ -170,6 +218,30 @@ async function save() {
 async function showProgress(row) {
   progress.value = await api.get(`/candidates/${row.id}/progress`)
   drawerVisible.value = true
+}
+
+function selectResumeFile(uploadFile) {
+  selectedResumeFile.value = uploadFile.raw
+  resumeFiles.value = [uploadFile]
+}
+
+function removeResumeFile() {
+  clearSelectedResume()
+}
+
+function clearSelectedResume() {
+  selectedResumeFile.value = null
+  resumeFiles.value = []
+}
+
+async function uploadResume(candidateId) {
+  const body = new FormData()
+  body.append('file', selectedResumeFile.value)
+  return api.post(`/candidates/${candidateId}/resume`, body)
+}
+
+function formatAiScore(score) {
+  return score === null || score === undefined ? '暂无' : `${score}%`
 }
 
 async function remove(row) {
@@ -189,5 +261,12 @@ onMounted(async () => {
 .pager {
   margin-top: 16px;
   justify-content: flex-end;
+}
+
+.upload-tip {
+  display: block;
+  margin-top: 6px;
+  color: #64748b;
+  line-height: 1.5;
 }
 </style>

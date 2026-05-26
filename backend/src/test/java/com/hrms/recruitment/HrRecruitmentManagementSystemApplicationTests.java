@@ -2,18 +2,33 @@ package com.hrms.recruitment;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+
+import com.hrms.recruitment.common.BusinessException;
+import com.hrms.recruitment.domain.ResumeScreening;
+import com.hrms.recruitment.repository.ResumeScreeningRepository;
+import com.hrms.recruitment.service.ai.AiClient;
+import com.hrms.recruitment.service.ai.ResumeAnalysisResult;
 
 @ActiveProfiles("test")
 @AutoConfigureMockMvc
@@ -21,6 +36,17 @@ import org.springframework.test.web.servlet.MockMvc;
 class HrRecruitmentManagementSystemApplicationTests {
     @Autowired
     MockMvc mockMvc;
+
+    @Autowired
+    ResumeScreeningRepository screenings;
+
+    @MockitoBean
+    AiClient aiClient;
+
+    @BeforeEach
+    void resetAiClient() {
+        reset(aiClient);
+    }
 
     @Test
     void loginFailsWithWrongPassword() throws Exception {
@@ -223,6 +249,97 @@ class HrRecruitmentManagementSystemApplicationTests {
                 .andExpect(jsonPath("$.data.interviewCount").value(before));
     }
 
+    @Test
+    void hrCanUploadTxtResumeAndTriggerAiAnalysis() throws Exception {
+        String hrToken = loginToken("admin", "admin123");
+        String managerToken = loginToken("manager", "manager123");
+        String positionId = createPosition(managerToken, "AI 匹配岗位");
+        String candidateId = createCandidate(hrToken, positionId, "赵六", "zhaoliu@example.com");
+        when(aiClient.analyzeResume(contains("用于自动化测试"), contains("Spring Boot")))
+                .thenReturn(new ResumeAnalysisResult(88, "匹配度较高，Java 与 Spring Boot 经历贴合岗位要求。"));
+
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "resume.txt",
+                MediaType.TEXT_PLAIN_VALUE,
+                "项目经历：负责 Spring Boot 招聘系统开发，熟悉 MySQL。".getBytes());
+
+        mockMvc.perform(multipart("/api/candidates/" + candidateId + "/resume")
+                        .file(file)
+                        .header("Authorization", "Bearer " + hrToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.candidate.resumeOriginalFileName").value("resume.txt"))
+                .andExpect(jsonPath("$.data.candidate.resumeContentType").value(MediaType.TEXT_PLAIN_VALUE))
+                .andExpect(jsonPath("$.data.candidate.resumeText").value("项目经历：负责 Spring Boot 招聘系统开发，熟悉 MySQL。"))
+                .andExpect(jsonPath("$.data.screening.aiMatchScore").value(88))
+                .andExpect(jsonPath("$.data.screening.aiQuickReview").value("匹配度较高，Java 与 Spring Boot 经历贴合岗位要求。"));
+
+        verify(aiClient).analyzeResume(contains("用于自动化测试"), contains("Spring Boot 招聘系统"));
+    }
+
+    @Test
+    void uploadRejectsUnsupportedResumeFileType() throws Exception {
+        String hrToken = loginToken("admin", "admin123");
+        String managerToken = loginToken("manager", "manager123");
+        String positionId = createPosition(managerToken, "附件类型测试岗位");
+        String candidateId = createCandidate(hrToken, positionId, "钱七", "qianqi@example.com");
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "resume.png",
+                "image/png",
+                "fake image".getBytes());
+
+        mockMvc.perform(multipart("/api/candidates/" + candidateId + "/resume")
+                        .file(file)
+                        .header("Authorization", "Bearer " + hrToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("仅支持 PDF、DOCX、TXT 简历文件"));
+    }
+
+    @Test
+    void uploadRejectsResumeWithoutExtractedText() throws Exception {
+        String hrToken = loginToken("admin", "admin123");
+        String managerToken = loginToken("manager", "manager123");
+        String positionId = createPosition(managerToken, "空简历测试岗位");
+        String candidateId = createCandidate(hrToken, positionId, "孙八", "sunba@example.com");
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "resume.txt",
+                MediaType.TEXT_PLAIN_VALUE,
+                "   \r\n\t   ".getBytes());
+
+        mockMvc.perform(multipart("/api/candidates/" + candidateId + "/resume")
+                        .file(file)
+                        .header("Authorization", "Bearer " + hrToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("未能从简历中提取到有效文本"));
+    }
+
+    @Test
+    void manualAiAnalysisKeepsExistingResultWhenProviderFails() throws Exception {
+        String hrToken = loginToken("admin", "admin123");
+        String managerToken = loginToken("manager", "manager123");
+        String positionId = createPosition(managerToken, "AI 失败保护岗位");
+        String candidateId = createCandidate(hrToken, positionId, "周九", "zhoujiu@example.com");
+        when(aiClient.analyzeResume(contains("用于自动化测试"), contains("候选人熟悉 Java")))
+                .thenReturn(new ResumeAnalysisResult(76, "具备基础匹配度，可进一步复核项目深度。"));
+        uploadTxtResume(hrToken, candidateId, "resume.txt", "候选人熟悉 Java、Spring Boot 与数据库。");
+        ResumeScreening before = screenings.findByCandidateId(Long.parseLong(candidateId)).orElseThrow();
+        when(aiClient.analyzeResume(eq(before.getCandidate().getPosition().getRequirements()), contains("候选人熟悉 Java")))
+                .thenThrow(new BusinessException("AI 服务未配置，请设置 AI_API_KEY"));
+
+        mockMvc.perform(post("/api/screenings/" + candidateId + "/ai-analysis")
+                        .header("Authorization", "Bearer " + hrToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("AI 服务未配置，请设置 AI_API_KEY"));
+
+        mockMvc.perform(get("/api/candidates/" + candidateId + "/progress")
+                        .header("Authorization", "Bearer " + hrToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.screening.aiMatchScore").value(76))
+                .andExpect(jsonPath("$.data.screening.aiQuickReview").value("具备基础匹配度，可进一步复核项目深度。"));
+    }
+
     private String loginToken(String username, String password) throws Exception {
         String body = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -266,5 +383,17 @@ class HrRecruitmentManagementSystemApplicationTests {
                 .andReturn().getResponse().getContentAsString();
         String value = body.replaceAll(".*\"interviewCount\":([0-9]+).*", "$1");
         return Integer.parseInt(value);
+    }
+
+    private void uploadTxtResume(String hrToken, String candidateId, String fileName, String text) throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                fileName,
+                MediaType.TEXT_PLAIN_VALUE,
+                text.getBytes());
+        mockMvc.perform(multipart("/api/candidates/" + candidateId + "/resume")
+                        .file(file)
+                        .header("Authorization", "Bearer " + hrToken))
+                .andExpect(status().isOk());
     }
 }

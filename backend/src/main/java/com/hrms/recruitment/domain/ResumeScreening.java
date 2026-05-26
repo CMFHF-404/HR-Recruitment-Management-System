@@ -32,6 +32,11 @@ public class ResumeScreening {
     @Column(columnDefinition = "text")
     private String comment;
 
+    private Integer aiMatchScore;
+
+    @Column(columnDefinition = "text")
+    private String aiQuickReview;
+
     private LocalDateTime screeningTime;
 
     @Enumerated(EnumType.STRING)
@@ -50,6 +55,10 @@ public class ResumeScreening {
     public void setStatus(ScreeningStatus status) { this.status = status; }
     public String getComment() { return comment; }
     public void setComment(String comment) { this.comment = comment; }
+    public Integer getAiMatchScore() { return aiMatchScore; }
+    public void setAiMatchScore(Integer aiMatchScore) { this.aiMatchScore = aiMatchScore; }
+    public String getAiQuickReview() { return aiQuickReview; }
+    public void setAiQuickReview(String aiQuickReview) { this.aiQuickReview = aiQuickReview; }
     public LocalDateTime getScreeningTime() { return screeningTime; }
     public void setScreeningTime(LocalDateTime screeningTime) { this.screeningTime = screeningTime; }
     public ManagerReviewStatus getManagerStatus() { return managerStatus == null ? ManagerReviewStatus.NOT_SUBMITTED : managerStatus; }

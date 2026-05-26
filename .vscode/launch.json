@@ -1,0 +1,20 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "启动前端调试 (Vite + Chrome)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5179",
+      "webRoot": "${workspaceFolder}/frontend",
+      "preLaunchTask": "vite: dev"
+    },
+    {
+      "name": "Chrome 调试 (已手动运行 npm run dev)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5179",
+      "webRoot": "${workspaceFolder}/frontend"
+    }
+  ]
+}

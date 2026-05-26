@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.hrms.recruitment.common.ApiResponse;
 import com.hrms.recruitment.common.BusinessException;
@@ -23,6 +24,7 @@ import com.hrms.recruitment.repository.InterviewRepository;
 import com.hrms.recruitment.repository.OfferResultRepository;
 import com.hrms.recruitment.repository.ResumeScreeningRepository;
 import com.hrms.recruitment.service.RecruitmentService;
+import com.hrms.recruitment.service.RecruitmentService.CandidateResumeUpload;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -74,6 +76,16 @@ public class CandidateController {
     public ApiResponse<Candidate> create(@Valid @RequestBody CandidateRequest request) {
         Candidate candidate = toEntity(new Candidate(), request);
         return ApiResponse.ok("候选人已登记", service.saveCandidate(candidate, request.positionId()));
+    }
+
+    @PostMapping("/{id}/resume")
+    public ApiResponse<CandidateResumeUpload> uploadResume(@PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        CandidateResumeUpload result = service.uploadCandidateResume(id, file);
+        String message = result.analysisSucceeded()
+                ? "简历已上传并完成 AI 分析"
+                : "简历已上传，AI 分析失败，可稍后重试：" + result.analysisMessage();
+        return ApiResponse.ok(message, result);
     }
 
     @PutMapping("/{id}")

@@ -44,6 +44,20 @@ public class Candidate {
     @Column(columnDefinition = "text")
     private String note;
 
+    @Column(length = 255)
+    private String resumeOriginalFileName;
+
+    @Column(length = 120)
+    private String resumeContentType;
+
+    @Column(length = 500)
+    private String resumeStoragePath;
+
+    @Column(columnDefinition = "text")
+    private String resumeText;
+
+    private LocalDateTime resumeUploadedAt;
+
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -64,6 +78,16 @@ public class Candidate {
     public void setPosition(Position position) { this.position = position; }
     public String getNote() { return note; }
     public void setNote(String note) { this.note = note; }
+    public String getResumeOriginalFileName() { return resumeOriginalFileName; }
+    public void setResumeOriginalFileName(String resumeOriginalFileName) { this.resumeOriginalFileName = resumeOriginalFileName; }
+    public String getResumeContentType() { return resumeContentType; }
+    public void setResumeContentType(String resumeContentType) { this.resumeContentType = resumeContentType; }
+    public String getResumeStoragePath() { return resumeStoragePath; }
+    public void setResumeStoragePath(String resumeStoragePath) { this.resumeStoragePath = resumeStoragePath; }
+    public String getResumeText() { return resumeText; }
+    public void setResumeText(String resumeText) { this.resumeText = resumeText; }
+    public LocalDateTime getResumeUploadedAt() { return resumeUploadedAt; }
+    public void setResumeUploadedAt(LocalDateTime resumeUploadedAt) { this.resumeUploadedAt = resumeUploadedAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

@@ -31,6 +31,11 @@ CREATE TABLE IF NOT EXISTS candidate (
   school VARCHAR(120) NOT NULL,
   position_id BIGINT NOT NULL,
   note TEXT,
+  resume_original_file_name VARCHAR(255),
+  resume_content_type VARCHAR(120),
+  resume_storage_path VARCHAR(500),
+  resume_text TEXT,
+  resume_uploaded_at DATETIME,
   created_at DATETIME NOT NULL,
   CONSTRAINT fk_candidate_position FOREIGN KEY (position_id) REFERENCES position(id)
 );
@@ -40,6 +45,8 @@ CREATE TABLE IF NOT EXISTS resume_screening (
   candidate_id BIGINT NOT NULL UNIQUE,
   status VARCHAR(20) NOT NULL,
   comment TEXT,
+  ai_match_score INT,
+  ai_quick_review TEXT,
   screening_time DATETIME,
   manager_status VARCHAR(20) NOT NULL,
   manager_comment TEXT,
