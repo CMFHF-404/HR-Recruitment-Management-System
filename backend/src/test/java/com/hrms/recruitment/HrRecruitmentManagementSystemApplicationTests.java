@@ -377,6 +377,23 @@ class HrRecruitmentManagementSystemApplicationTests {
     }
 
     @Test
+    void hrCanExportCandidatesAsCsv() throws Exception {
+        String hrToken = loginToken("admin", "admin123");
+        String managerToken = loginToken("manager", "manager123");
+        String positionId = createPosition(managerToken, "CSV 导出岗位");
+        createCandidate(hrToken, positionId, "导出候选人", "export-candidate@example.com");
+
+        mockMvc.perform(get("/api/candidates/export")
+                        .header("Authorization", "Bearer " + hrToken))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("text/csv"))
+                .andExpect(content().string(containsString("姓名,性别,联系电话,邮箱,学历,毕业院校,应聘岗位,部门,简历附件,创建时间")))
+                .andExpect(content().string(containsString("导出候选人")))
+                .andExpect(content().string(containsString("export-candidate@example.com")))
+                .andExpect(content().string(containsString("CSV 导出岗位")));
+    }
+
+    @Test
     void hrCanUploadTxtResumeAndTriggerAiAnalysis() throws Exception {
         String hrToken = loginToken("admin", "admin123");
         String managerToken = loginToken("manager", "manager123");

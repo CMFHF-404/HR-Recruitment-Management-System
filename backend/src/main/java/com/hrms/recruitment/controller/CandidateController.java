@@ -1,8 +1,14 @@
 package com.hrms.recruitment.controller;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -53,6 +59,16 @@ public class CandidateController {
             @RequestParam(required = false) Long positionId,
             @PageableDefault(size = 10) Pageable pageable) {
         return ApiResponse.ok(service.searchCandidates(keyword, positionId, pageable));
+    }
+
+    @GetMapping(value = "/export", produces = "text/csv;charset=UTF-8")
+    public ResponseEntity<String> export(@RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long positionId) {
+        String filename = URLEncoder.encode("candidates.csv", StandardCharsets.UTF_8);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + filename)
+                .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
+                .body(toCsv(service.searchCandidates(keyword, positionId, Pageable.unpaged()).getContent()));
     }
 
     @GetMapping("/{id}")
@@ -122,4 +138,34 @@ public class CandidateController {
             String note) {}
 
     public record CandidateProgress(Candidate candidate, ResumeScreening screening, Interview interview, OfferResult offer) {}
+
+    private String toCsv(Iterable<Candidate> candidates) {
+        StringBuilder csv = new StringBuilder("\uFEFF");
+        csv.append("姓名,性别,联系电话,邮箱,学历,毕业院校,应聘岗位,部门,简历附件,创建时间\r\n");
+        for (Candidate candidate : candidates) {
+            csv.append(csvCell(candidate.getName())).append(',')
+                    .append(csvCell(candidate.getGender())).append(',')
+                    .append(csvCell(candidate.getPhone())).append(',')
+                    .append(csvCell(candidate.getEmail())).append(',')
+                    .append(csvCell(candidate.getEducation())).append(',')
+                    .append(csvCell(candidate.getSchool())).append(',')
+                    .append(csvCell(candidate.getPosition().getName())).append(',')
+                    .append(csvCell(candidate.getPosition().getDepartment())).append(',')
+                    .append(csvCell(candidate.getResumeOriginalFileName())).append(',')
+                    .append(csvCell(candidate.getCreatedAt() == null ? "" : candidate.getCreatedAt().toString()))
+                    .append("\r\n");
+        }
+        return csv.toString();
+    }
+
+    private String csvCell(String value) {
+        if (value == null) {
+            return "";
+        }
+        String escaped = value.replace("\"", "\"\"");
+        if (escaped.contains(",") || escaped.contains("\"") || escaped.contains("\n") || escaped.contains("\r")) {
+            return "\"" + escaped + "\"";
+        }
+        return escaped;
+    }
 }

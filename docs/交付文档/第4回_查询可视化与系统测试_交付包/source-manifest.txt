@@ -1,0 +1,11 @@
+源代码与数据脚本位于仓库根目录：
+
+- backend/：Spring Boot 后端接口、业务逻辑、自动化测试
+- frontend/：Vue 3 前端页面、路由、接口封装、样式
+- database/schema.sql：MySQL 建表脚本
+- database/init-data.sql：默认账号与演示初始化数据
+- README.md：安装与运行步骤
+- requirements.txt：项目依赖清单
+
+本交付包重点归档第4回要求的 README、依赖清单、CSV 导出结果和系统截图。
+

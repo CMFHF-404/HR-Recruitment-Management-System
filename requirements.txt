@@ -1,0 +1,29 @@
+# 小型企业招聘管理信息系统依赖清单
+
+# 运行环境
+Java >= 17
+Node.js >= 20
+npm >= 10
+MySQL >= 8.0
+
+# 后端依赖由 backend/pom.xml 管理
+Spring Boot 3.5.7
+Spring Web
+Spring Data JPA
+Spring Security
+Spring Validation
+MySQL Connector/J
+H2 Database
+Apache PDFBox 3.0.5
+Apache POI OOXML 5.4.1
+JUnit 5 / Spring Boot Test
+
+# 前端依赖由 frontend/package.json 管理
+Vue 3
+Vite 8
+Element Plus
+Axios
+ECharts
+Vue Router
+@element-plus/icons-vue
+

@@ -11,6 +11,7 @@
           <el-option v-for="item in positions" :key="item.id" :label="item.name" :value="item.id" />
         </el-select>
         <el-button :icon="Search" @click="load">查询</el-button>
+        <el-button :icon="Download" @click="exportCsv">导出 CSV</el-button>
         <el-button type="primary" :icon="Plus" @click="openCreate">新增候选人</el-button>
       </div>
     </div>
@@ -136,7 +137,7 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Upload } from '@element-plus/icons-vue'
+import { Download, Plus, Search, Upload } from '@element-plus/icons-vue'
 import { api, interviewStatusText, managerReviewStatusText, offerStatusText, screeningStatusText, statusType } from '../api'
 
 const loading = ref(false)
@@ -218,6 +219,22 @@ async function save() {
 async function showProgress(row) {
   progress.value = await api.get(`/candidates/${row.id}/progress`)
   drawerVisible.value = true
+}
+
+async function exportCsv() {
+  const blob = await api.get('/candidates/export', {
+    params: { keyword: keyword.value, positionId: positionId.value },
+    responseType: 'blob',
+  })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'candidates.csv'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+  ElMessage.success('CSV 已导出')
 }
 
 function selectResumeFile(uploadFile) {
